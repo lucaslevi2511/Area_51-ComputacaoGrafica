@@ -266,21 +266,99 @@ function configScene() {
     gl.uniform1f(dfPtr, df);
 }
 
-function draw() {
-    var matrotX = [
+function multiply(a, b) {
+    var c = new Float32Array(16);
+    for (var i = 0; i < 4; i++) {
+        for (var j = 0; j < 4; j++) {
+            c[i * 4 + j] = a[i * 4 + 0] * b[0 * 4 + j] +
+                           a[i * 4 + 1] * b[1 * 4 + j] +
+                           a[i * 4 + 2] * b[2 * 4 + j] +
+                           a[i * 4 + 3] * b[3 * 4 + j];
+        }
+    }
+    return c;
+}
+
+// Cria matriz de translação (tx, ty, tz)
+function translationMatrix(tx, ty, tz) {
+    return [
         1.0, 0.0, 0.0, 0.0,
-        0.0, Math.cos(angle*Math.PI/180), -Math.sin(angle*Math.PI/180), 0.0,
-        0.0, Math.sin(angle*Math.PI/180),  Math.cos(angle*Math.PI/180), 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        tx,  ty,  tz,  1.0
+    ];
+}
+
+// Cria matriz de escala (sx, sy, sz)
+function scaleMatrix(sx, sy, sz) {
+    return [
+        sx,  0.0, 0.0, 0.0,
+        0.0, sy,  0.0, 0.0,
+        0.0, 0.0, sz,  0.0,
         0.0, 0.0, 0.0, 1.0
     ];
+}
 
-    transfPtr = gl.getUniformLocation(prog, "transf");
-    gl.uniformMatrix4fv(transfPtr, false, matrotX);
+// Rotação Eixo X
+function rotateX(angle) {
+    var rad = angle * Math.PI / 180.0;
+    var c = Math.cos(rad);
+    var s = Math.sin(rad);
+    return [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, c,   s,   0.0,
+        0.0, -s,  c,   0.0,
+        0.0, 0.0, 0.0, 1.0
+    ];
+}
+
+// Rotação Eixo Y
+function rotateY(angle) {
+    var rad = angle * Math.PI / 180.0;
+    var c = Math.cos(rad);
+    var s = Math.sin(rad);
+    return [
+        c,   0.0, -s,  0.0,
+        0.0, 1.0, 0.0, 0.0,
+        s,   0.0, c,   0.0,
+        0.0, 0.0, 0.0, 1.0
+    ];
+}
+
+// Rotação Eixo Z
+function rotateZ(angle) {
+    var rad = angle * Math.PI / 180.0;
+    var c = Math.cos(rad);
+    var s = Math.sin(rad);
+    return [
+        c,   s,   0.0, 0.0,
+        -s,  c,   0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    ];
+}
+
+function draw() {
+    angle++; 
+    scaleVal = 1.0 + Math.sin(angle * 0.05) * 0.5; 
+    transX = Math.sin(angle * 0.02) * 0.5;
+
+    // 2. Criar as Matrizes Individuais
+    var matS = scaleMatrix(scaleVal, scaleVal, scaleVal); 
+    var matR_X = rotateX(angle * 0.5);
+    var matR_Y = rotateY(angle);
+    var matR_Z = rotateZ(0); 
+    var matT = translationMatrix(transX, 0.0, 0.0); 
+
+    var matR = multiply(matR_Y, matR_X);
+    var matRS = multiply(matS, matR);    
+    var finalMatrix = multiply(matRS, matT); 
+
+    var transfPtr = gl.getUniformLocation(prog, "transf");
+    gl.uniformMatrix4fv(transfPtr, false, finalMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
     gl.drawArrays(gl.TRIANGLES, 0, numVertices);
 
-    angle++;
     requestAnimationFrame(draw);
 }
