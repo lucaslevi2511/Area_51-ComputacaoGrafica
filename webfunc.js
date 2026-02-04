@@ -5,48 +5,45 @@ var df = 2.0;
 
 var angle = 0;
 
-function getGL(canvas)
-{
-    var gl = canvas.getContext("webgl");
-    if(gl) return gl;
-    
-    gl = canvas.getContext("experimental-webgl");
-    if(gl) return gl;
-    
-    alert("Contexto WebGL inexistente! Troque de navegador!");
-    return false;
+function getGL(canvas) {
+  var gl = canvas.getContext("webgl");
+  if (gl) return gl;
+
+  gl = canvas.getContext("experimental-webgl");
+  if (gl) return gl;
+
+  alert("Contexto WebGL inexistente! Troque de navegador!");
+  return false;
 }
 
-function createShader(gl, shaderType, shaderSrc)
-{
-	var shader = gl.createShader(shaderType);
-	gl.shaderSource(shader, shaderSrc);
-	gl.compileShader(shader);
-	
-	if(gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-		return shader;
-	
-	alert("Erro de compilação: " + gl.getShaderInfoLog(shader));
-	
-	gl.deleteShader(shader);
+function createShader(gl, shaderType, shaderSrc) {
+  var shader = gl.createShader(shaderType);
+  gl.shaderSource(shader, shaderSrc);
+  gl.compileShader(shader);
+
+  if (gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+    return shader;
+
+  alert("Erro de compilação: " + gl.getShaderInfoLog(shader));
+
+  gl.deleteShader(shader);
 }
 
-function createProgram(gl, vtxShader, fragShader)
-{
-	var prog = gl.createProgram();
-	gl.attachShader(prog, vtxShader);
-	gl.attachShader(prog, fragShader);
-	gl.linkProgram(prog);
-	
-	if(gl.getProgramParameter(prog, gl.LINK_STATUS))
-		return prog;
+function createProgram(gl, vtxShader, fragShader) {
+  var prog = gl.createProgram();
+  gl.attachShader(prog, vtxShader);
+  gl.attachShader(prog, fragShader);
+  gl.linkProgram(prog);
 
-    alert("Erro de linkagem: " + gl.getProgramInfoLog(prog));
-	
-	gl.deleteProgram(prog);	
+  if (gl.getProgramParameter(prog, gl.LINK_STATUS))
+    return prog;
+
+  alert("Erro de linkagem: " + gl.getProgramInfoLog(prog));
+
+  gl.deleteProgram(prog);
 }
 
-var modelData = null; 
+var modelData = null;
 
 function parseOBJ(text) {
   // because indices are base 1 let's just fill in the 0th data
@@ -75,7 +72,7 @@ function parseOBJ(text) {
   let material = 'default';
   let object = 'default';
 
-  const noop = () => {};
+  const noop = () => { };
 
   function newGeometry() {
     // If there is an existing geometry and it's
@@ -185,7 +182,7 @@ function parseOBJ(text) {
   // remove any arrays that have no entries.
   for (const geometry of geometries) {
     geometry.data = Object.fromEntries(
-        Object.entries(geometry.data).filter(([, array]) => array.length > 0));
+      Object.entries(geometry.data).filter(([, array]) => array.length > 0));
   }
 
   return {
@@ -197,168 +194,182 @@ function parseOBJ(text) {
 
 function init() {
 
-    fetch("FinalBaseMesh.obj") 
-        .then(response => response.text())
-        .then(text => {
-            modelData = parseOBJ(text);
-            checkAllLoaded();
-        });
+  fetch("FinalBaseMesh.obj")
+    .then(response => response.text())
+    .then(text => {
+      modelData = parseOBJ(text);
+      checkAllLoaded();
+    });
 }
 
 function checkAllLoaded() {
 
-    if(modelData != null) {
-        initGL();
-        configScene();
-        draw();
-    }
+  if (modelData != null) {
+    initGL();
+    configScene();
+    draw();
+  }
 }
-    
-function initGL()
-{
 
-	var canvas = document.getElementById("glcanvas1");
-	
-	gl = getGL(canvas);
-	if(gl)
-	{
-        //Inicializa shaders
- 		var vtxShSrc = document.getElementById("vertex-shader").text;
-		var fragShSrc = document.getElementById("frag-shader").text;
+function initGL() {
 
-        var vtxShader = createShader(gl, gl.VERTEX_SHADER, vtxShSrc);
-        var fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragShSrc);
-        prog = createProgram(gl, vtxShader, fragShader);	
-        
-        gl.useProgram(prog);
+  var canvas = document.getElementById("glcanvas1");
 
-        //Inicializa área de desenho: viewport e cor de limpeza; limpa a tela
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        gl.clearColor(0, 0, 0, 1);
-        gl.enable( gl.BLEND );
-        gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
-        gl.enable(gl.DEPTH_TEST);
-        gl.enable(gl.CULL_FACE);
+  gl = getGL(canvas);
+  if (gl) {
+    //Inicializa shaders
+    var vtxShSrc = document.getElementById("vertex-shader").text;
+    var fragShSrc = document.getElementById("frag-shader").text;
 
-    }
-}    
+    var vtxShader = createShader(gl, gl.VERTEX_SHADER, vtxShSrc);
+    var fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragShSrc);
+    prog = createProgram(gl, vtxShader, fragShader);
+
+    gl.useProgram(prog);
+
+    //Inicializa área de desenho: viewport e cor de limpeza; limpa a tela
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clearColor(0, 0, 0, 1);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+
+  }
+}
 var numVertices = 0;
 
 function configScene() {
-    const positions = modelData.geometries[0].data.position; 
-    
-    if (!positions) {
-        console.error("Não foram encontrados dados de posição no modelo!");
-        return;
-    }
+  const positions = modelData.geometries[0].data.position;
 
-    numVertices = positions.length / 3;
+  if (!positions) {
+    console.error("Não foram encontrados dados de posição no modelo!");
+    return;
+  }
 
-    var bufPtr = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufPtr);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+  numVertices = positions.length / 3;
 
-    var positionPtr = gl.getAttribLocation(prog, "position");
-    gl.enableVertexAttribArray(positionPtr);
-    gl.vertexAttribPointer(positionPtr, 3, gl.FLOAT, false, 0, 0);
+  var bufPtr = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufPtr);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-    var dfPtr = gl.getUniformLocation(prog, "df"); 
-    gl.uniform1f(dfPtr, df);
+  var positionPtr = gl.getAttribLocation(prog, "position");
+  gl.enableVertexAttribArray(positionPtr);
+  gl.vertexAttribPointer(positionPtr, 3, gl.FLOAT, false, 0, 0);
+
+  var dfPtr = gl.getUniformLocation(prog, "df");
+  gl.uniform1f(dfPtr, df);
 }
 
 function multiply(a, b) {
-    var c = new Float32Array(16);
-    for (var i = 0; i < 4; i++) {
-        for (var j = 0; j < 4; j++) {
-            c[i * 4 + j] = a[i * 4 + 0] * b[0 * 4 + j] +
-                           a[i * 4 + 1] * b[1 * 4 + j] +
-                           a[i * 4 + 2] * b[2 * 4 + j] +
-                           a[i * 4 + 3] * b[3 * 4 + j];
-        }
+  var c = new Float32Array(16);
+  for (var i = 0; i < 4; i++) {
+    for (var j = 0; j < 4; j++) {
+      c[i * 4 + j] = a[i * 4 + 0] * b[0 * 4 + j] +
+        a[i * 4 + 1] * b[1 * 4 + j] +
+        a[i * 4 + 2] * b[2 * 4 + j] +
+        a[i * 4 + 3] * b[3 * 4 + j];
     }
-    return c;
+  }
+  return c;
 }
 
 // Cria matriz de translação (tx, ty, tz)
 function translationMatrix(tx, ty, tz) {
-    return [
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        tx,  ty,  tz,  1.0
-    ];
+  return [
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 1.0, 0.0,
+    tx, ty, tz, 1.0
+  ];
 }
 
 // Cria matriz de escala (sx, sy, sz)
 function scaleMatrix(sx, sy, sz) {
-    return [
-        sx,  0.0, 0.0, 0.0,
-        0.0, sy,  0.0, 0.0,
-        0.0, 0.0, sz,  0.0,
-        0.0, 0.0, 0.0, 1.0
-    ];
+  return [
+    sx, 0.0, 0.0, 0.0,
+    0.0, sy, 0.0, 0.0,
+    0.0, 0.0, sz, 0.0,
+    0.0, 0.0, 0.0, 1.0
+  ];
 }
 
 // Rotação Eixo X
 function rotateX(angle) {
-    var rad = angle * Math.PI / 180.0;
-    var c = Math.cos(rad);
-    var s = Math.sin(rad);
-    return [
-        1.0, 0.0, 0.0, 0.0,
-        0.0, c,   s,   0.0,
-        0.0, -s,  c,   0.0,
-        0.0, 0.0, 0.0, 1.0
-    ];
+  var rad = angle * Math.PI / 180.0;
+  var c = Math.cos(rad);
+  var s = Math.sin(rad);
+  return [
+    1.0, 0.0, 0.0, 0.0,
+    0.0, c, s, 0.0,
+    0.0, -s, c, 0.0,
+    0.0, 0.0, 0.0, 1.0
+  ];
 }
 
 // Rotação Eixo Y
 function rotateY(angle) {
-    var rad = angle * Math.PI / 180.0;
-    var c = Math.cos(rad);
-    var s = Math.sin(rad);
-    return [
-        c,   0.0, -s,  0.0,
-        0.0, 1.0, 0.0, 0.0,
-        s,   0.0, c,   0.0,
-        0.0, 0.0, 0.0, 1.0
-    ];
+  var rad = angle * Math.PI / 180.0;
+  var c = Math.cos(rad);
+  var s = Math.sin(rad);
+  return [
+    c, 0.0, -s, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    s, 0.0, c, 0.0,
+    0.0, 0.0, 0.0, 1.0
+  ];
 }
 
 // Rotação Eixo Z
 function rotateZ(angle) {
-    var rad = angle * Math.PI / 180.0;
-    var c = Math.cos(rad);
-    var s = Math.sin(rad);
-    return [
-        c,   s,   0.0, 0.0,
-        -s,  c,   0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    ];
+  var rad = angle * Math.PI / 180.0;
+  var c = Math.cos(rad);
+  var s = Math.sin(rad);
+  return [
+    c, s, 0.0, 0.0,
+    -s, c, 0.0, 0.0,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0
+  ];
+}
+
+function createPerspective(fovy, aspect, near, far){
+  fovy = fovy * Math.PI / 180.0;
+  var fy = 1 / Math.tan(fovy / 2)
+  var fx = fy / aspect
+  var A = -(far+near)/ (far-near)
+  var B = -2 * far * near / (far - near)
+
+  var perspec = new Float32Array(
+    [fx, 0, 0, 0],
+     [0, fy, 0, 0],
+     [0, 0, A, B],
+     [0, 0, -1, 0]);
+
+  return perspec
 }
 
 function draw() {
-    angle++; 
-    scaleVal = 1.0 + Math.sin(angle * 0.05) * 0.5; 
-    transX = Math.sin(angle * 0.02) * 0.5;
+  angle++;
+  scaleVal = 1.0 + Math.sin(angle * 0.05) * 0.5;
+  transX = Math.sin(angle * 0.02) * 0.5;
 
-    // 2. Criar as Matrizes Individuais
-    var matS = scaleMatrix(scaleVal, scaleVal, scaleVal); 
-    var matR_X = rotateX(angle * 0.5);
-    var matR_Y = rotateY(angle);
-    var matR_Z = rotateZ(0); 
-    var matT = translationMatrix(transX, 0.0, 0.0); 
+  // 2. Criar as Matrizes Individuais
+  var matS = scaleMatrix(scaleVal, scaleVal, scaleVal);
+  var matR_X = rotateX(angle * 0.5);
+  var matR_Y = rotateY(angle);
+  var matR_Z = rotateZ(0);
+  var matT = translationMatrix(transX, 0.0, 0.0);
 
-    var matR = multiply(matR_Y, matR_X);
-    var matRS = multiply(matS, matR);    
-    var finalMatrix = multiply(matRS, matT); 
+  var matR = multiply(matR_Y, matR_X);
+  var matRS = multiply(matS, matR);
+  var finalMatrix = multiply(matRS, matT);
 
-    var transfPtr = gl.getUniformLocation(prog, "transf");
-    gl.uniformMatrix4fv(transfPtr, false, finalMatrix);
+  var transfPtr = gl.getUniformLocation(prog, "transf");
+  gl.uniformMatrix4fv(transfPtr, false, finalMatrix);
 
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLES, 0, numVertices);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLES, 0, numVertices);
 
-    requestAnimationFrame(draw);
+  requestAnimationFrame(draw);
 }
