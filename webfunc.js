@@ -246,6 +246,7 @@ var numVertices = 0;
 
 function createRenderable(gl, modelData) {
   const positions = modelData.geometries[0].data.position;
+  const normals = modelData.geometries[0].data.normal; //Pega as normais que o parseOBJ já extraiu
   
   if (!positions) {
     console.error("Dados de posição não encontrados!");
@@ -255,8 +256,13 @@ function createRenderable(gl, modelData) {
   gl.bindBuffer(gl.ARRAY_BUFFER, bufPtr);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
+  var normBuffer = gl.createBuffer(); //Buffer das normais
+  gl.bindBuffer(gl.ARRAY_BUFFER, normBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
   return {
     buffer: bufPtr,
+    normalBuffer: normBuffer,
     numVertices: positions.length / 3,
     transform: {
       x: 0.0, y: 0.0, z: 0.0,
@@ -433,6 +439,14 @@ function draw() {
     var positionPtr = gl.getAttribLocation(prog, "position");
     gl.enableVertexAttribArray(positionPtr);
     gl.vertexAttribPointer(positionPtr, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, obj.normalBuffer); //Recebe os valores das normais
+    var normLoc = gl.getAttribLocation(prog, "normal");
+    gl.enableVertexAttribArray(normLoc);
+    gl.vertexAttribPointer(normLoc, 3, gl.FLOAT, false, 0, 0);
+
+    gl.uniform3f(gl.getUniformLocation(prog, "u_lightPosition"), 20.0, 20.0, 40.0);// Posição da Luz
+    gl.uniform3f(gl.getUniformLocation(prog, "u_viewPosition"), eye[0], eye[1], eye[2]);// Posição da view
 
     obj.transform.ry = angle;
     obj.transform.scale = 1.0;

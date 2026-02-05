@@ -8,23 +8,74 @@
 
   <script id="vertex-shader" type="notjs">
     attribute vec4 position;
+    attribute vec3 normal;     // Direção que o vértice está olhando
 
     uniform mat4 transf;       // MODEL
     uniform mat4 view;         // VIEW (lookAt)
     uniform mat4 projection;   // PROJECTION (perspective)
 
+    varying vec3 v_normal;             // Ao transportar para o fragment shader, coloca normal em todos os pixel dentro dos triângulos desenhados
+    varying vec3 v_worldPosition;      // Posição do vértice dentro do mundo 3D
+
     void main()
     {
-        gl_Position = projection * view * transf * position;
+        vec4 worldPos = transf * position;                            // Variável local que armazena o vértice após as transformações
+        v_worldPosition = worldPos.xyz;                                     // Transporta a posição 3D para o fragment shader
+        v_normal = mat3(transf) * normal;                              // Adapta a normal com as transformações
+
+        gl_Position = projection * view * worldPos;          
     }
   </script>
 
   <script id="frag-shader" type="notjs">
     precision mediump float;
 
+    varying vec3 v_normal;
+    varying vec3 v_worldPosition;
+
+    uniform vec3 u_lightPosition;      //Posição da Luz
+    uniform vec3 u_viewPosition;       //Posição da câmera
+
     void main()
     {
-        gl_FragColor = vec4(0.0, 0.5, 1.0, 1.0);
+        // 1. NORMALIZAÇÃO MANUAL (N, L e V)
+        // Cálculo: Vetor / RaizQuadrada(x² + y² + z²)
+        float squares_vector_sum = sqrt(v_normal.x * v_normal.x + v_normal.y * v_normal.y + v_normal.z * v_normal.z);
+        vec3 N = v_normal / squares_vector_sum;
+
+        vec3 lightDir = u_lightPosition - v_worldPosition;
+        squares_vector_sum = sqrt(lightDir.x * lightDir.x + lightDir.y * lightDir.y + lightDir.z * lightDir.z);
+        vec3 L = lightDir / squares_vector_sum;
+
+        vec3 viewDir = u_viewPosition - v_worldPosition;
+        squares_vector_sum = sqrt(viewDir.x * viewDir.x + viewDir.y * viewDir.y + viewDir.z * viewDir.z);
+        vec3 V = viewDir / squares_vector_sum;
+
+
+        // 2. PRODUTO ESCALAR MANUAL (dot product)
+        // Cálculo: (ax * bx) + (ay * by) + (az * bz)
+        float dotNL = (N.x * L.x) + (N.y * L.y) + (N.z * L.z);
+        float diff = max(dotNL, 0.0);
+
+
+        // 3. REFLEXÃO MANUAL (reflect)
+        // Cálculo: I - 2.0 * dot(N, I) * N
+        // Onde I é o vetor que ENTRA (inverso de L)
+        vec3 I = -L;
+        float dotNI = (N.x * I.x) + (N.y * I.y) + (N.z * I.z);
+        vec3 R = I - 2.0 * dotNI * N;
+
+
+        // 4. ESPECULAR (Brilho)
+        float dotRV = (R.x * V.x) + (R.y * V.y) + (R.z * V.z);
+        float spec = pow(max(dotRV, 0.0), 50.0);
+
+
+        float ambient = 0.2;
+        vec3 color = vec3(0.0, 0.5, 1.0);
+        vec3 finalColor = (ambient + diff + (spec * 0.5)) * color;
+
+        gl_FragColor = vec4(finalColor, 1.0);
     }
   </script>
 </head>
