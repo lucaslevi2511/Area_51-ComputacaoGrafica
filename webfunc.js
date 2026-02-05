@@ -1,4 +1,4 @@
-
+var sceneObjects = [];
 var gl;
 var prog;
 var df = 2.0;
@@ -193,24 +193,29 @@ function parseOBJ(text) {
 
 
 function init() {
+  // Lista de arquivos .obj para carregar
+  const arquivos = ["FinalBaseMesh.obj", "cube.obj"]; 
 
-  fetch("FinalBaseMesh.obj")
-    .then(response => response.text())
-    .then(text => {
-      modelData = parseOBJ(text);
-      checkAllLoaded();
+  const promises = arquivos.map(url => 
+    fetch(url)
+      .then(res => res.text())
+      .then(text => parseOBJ(text))
+  );
+
+  Promise.all(promises).then(modelosParsers => {
+    initGL(); 
+    modelosParsers.forEach((dados, index) => {
+      let objeto = createRenderable(gl, dados);
+      
+      //Coloca um objeto do lado do outro, só pparaa teste
+      objeto.transform.x = index * 6.0; 
+      
+      sceneObjects.push(objeto);
     });
-}
 
-function checkAllLoaded() {
-
-  if (modelData != null) {
-    initGL();
-    configScene();
     draw();
-  }
+  });
 }
-
 function initGL() {
 
   var canvas = document.getElementById("glcanvas1");
@@ -239,26 +244,26 @@ function initGL() {
 }
 var numVertices = 0;
 
-function configScene() {
+function createRenderable(gl, modelData) {
   const positions = modelData.geometries[0].data.position;
-
+  
   if (!positions) {
-    console.error("Não foram encontrados dados de posição no modelo!");
-    return;
+    console.error("Dados de posição não encontrados!");
+    return null;
   }
-
-  numVertices = positions.length / 3;
-
   var bufPtr = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, bufPtr);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-  var positionPtr = gl.getAttribLocation(prog, "position");
-  gl.enableVertexAttribArray(positionPtr);
-  gl.vertexAttribPointer(positionPtr, 3, gl.FLOAT, false, 0, 0);
-
-  var dfPtr = gl.getUniformLocation(prog, "df");
-  gl.uniform1f(dfPtr, df);
+  return {
+    buffer: bufPtr,
+    numVertices: positions.length / 3,
+    transform: {
+      x: 0.0, y: 0.0, z: 0.0,
+      rx: 0.0, ry: 0.0, rz: 0.0,
+      scale: 1.0
+    }
+  };
 }
 
 function multiply(a, b) {
@@ -350,26 +355,37 @@ function createPerspective(fovy, aspect, near, far){
 }
 
 function draw() {
-  angle++;
-  scaleVal = 1.0 + Math.sin(angle * 0.05) * 0.5;
-  transX = Math.sin(angle * 0.02) * 0.5;
-
-  // 2. Criar as Matrizes Individuais
-  var matS = scaleMatrix(scaleVal, scaleVal, scaleVal);
-  var matR_X = rotateX(angle * 0.5);
-  var matR_Y = rotateY(angle);
-  var matR_Z = rotateZ(0);
-  var matT = translationMatrix(transX, 0.0, 0.0);
-
-  var matR = multiply(matR_Y, matR_X);
-  var matRS = multiply(matS, matR);
-  var finalMatrix = multiply(matRS, matT);
-
-  var transfPtr = gl.getUniformLocation(prog, "transf");
-  gl.uniformMatrix4fv(transfPtr, false, finalMatrix);
-
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.drawArrays(gl.TRIANGLES, 0, numVertices);
+
+  angle++; 
+
+  var dfPtr = gl.getUniformLocation(prog, "df");
+  gl.uniform1f(dfPtr, df); 
+
+  sceneObjects.forEach(obj => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, obj.buffer);
+    
+    var positionPtr = gl.getAttribLocation(prog, "position");
+    gl.enableVertexAttribArray(positionPtr); 
+
+    gl.vertexAttribPointer(positionPtr, 3, gl.FLOAT, false, 0, 0);
+
+    obj.transform.ry = angle; 
+    obj.transform.scale = 1.0; 
+    obj.transform.y= -10.0;
+    var matS = scaleMatrix(obj.transform.scale, obj.transform.scale, obj.transform.scale);
+    var matR_Y = rotateY(obj.transform.ry);
+    var matT = translationMatrix(obj.transform.x, obj.transform.y, obj.transform.z);
+
+
+    var matRS = multiply(matT, matR_Y); 
+    var finalMatrix = multiply(matRS, matS); 
+
+    var transfPtr = gl.getUniformLocation(prog, "transf");
+    gl.uniformMatrix4fv(transfPtr, false, finalMatrix);
+    
+    gl.drawArrays(gl.TRIANGLES, 0, obj.numVertices);
+  });
 
   requestAnimationFrame(draw);
 }
