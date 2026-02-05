@@ -338,52 +338,127 @@ function rotateZ(angle) {
   ];
 }
 
-function createPerspective(fovy, aspect, near, far){
+function createPerspective(fovy, aspect, near, far) {
   fovy = fovy * Math.PI / 180.0;
-  var fy = 1 / Math.tan(fovy / 2)
-  var fx = fy / aspect
-  var A = -(far+near)/ (far-near)
-  var B = -2 * far * near / (far - near)
 
-  var perspec = new Float32Array(
-    [fx, 0, 0, 0],
-     [0, fy, 0, 0],
-     [0, 0, A, B],
-     [0, 0, -1, 0]);
+  var fy = 1 / Math.tan(fovy / 2);
+  var fx = fy / aspect;
+  var A  = -(far + near) / (far - near);
+  var B  = -2 * far * near / (far - near);
 
-  return perspec
+  return new Float32Array([
+    fx, 0,  0,  0,
+     0, fy, 0,  0,
+     0, 0,  A, -1,
+     0, 0,  B,  0
+  ]);
+}
+
+function normalize(v){
+  //A função hypot() retorna a raiz quadrada do somátorio do quadrado de seus parâmetros
+  const len = Math.hypot(v[0],v[1],v[2]);
+  // Retorna a norma do vetor
+  return [v[0]/len, v[1]/len, v[2]/len];
+}
+
+function subtract(a,b){
+  //Retorna a subtração de 2 vetores
+  return [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+}
+
+function cross(a,b){
+  // Retorna o produto vetorial de 2 vetores
+  return [
+    a[1]*b[2] - a[2]*b[1],
+    a[2]*b[0] - a[0]*b[2],
+    a[0]*b[1] - a[1]*b[0]
+  ];
+}
+
+function dot(a,b){
+  // Retorna o produto escalar de 2 vetores
+  return [a[0]*b[0] + a[1]*b[1] + a[2]*b[2]];
+}
+
+// eye = posição da câmera no mundo
+// target = onde a câmera está olhando
+// up =  vetor normal à câmera
+function lookat(eye,target,up){
+  // eixo z: câmera aponta para trás
+  const z = normalize(subtract(eye,target));
+  // eixo x: vetor perpendicular à câmera, apontando para a direita
+  const x = normalize(cross(up, z));
+  // eixo y: Cima da câmera, z e x são unitários e não precisam ser normalizados
+  const y = cross(z, x);
+  // Matriz da câmera
+  // -dot para que mova-se o mundo no sentido oposto da câmera, dando a impressão de mobilidade
+  camera = new Float32Array([
+    x[0], y[0], z[0], 0,
+    x[1], y[1], z[1], 0,
+    x[2], y[2], z[2], 0,
+   -dot(x, eye), -dot(y, eye), -dot(z, eye), 1
+  ]);
+
+  return camera
 }
 
 function draw() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  angle++; 
+  angle++;
+  
+  var aspect = gl.canvas.width / gl.canvas.height;
+  var projectionMatrix = createPerspective(
+    60.0,   // fovy
+    aspect,
+    1.0,    // near
+    1000.0  // far
+  );
 
-  var dfPtr = gl.getUniformLocation(prog, "df");
-  gl.uniform1f(dfPtr, df); 
+  var projPtr = gl.getUniformLocation(prog, "projection");
+  gl.uniformMatrix4fv(projPtr, false, projectionMatrix);
+
+  var eye    = [0.0, 0.0, 30.0];   // posição da câmera
+  var target = [0.0, 0.0, 0.0];   // para onde olha
+  var up     = [0.0, 1.0, 0.0];   // eixo vertical
+
+  var viewMatrix = lookat(eye, target, up);
+
+  var viewPtr = gl.getUniformLocation(prog, "view");
+  gl.uniformMatrix4fv(viewPtr, false, viewMatrix);
 
   sceneObjects.forEach(obj => {
     gl.bindBuffer(gl.ARRAY_BUFFER, obj.buffer);
-    
-    var positionPtr = gl.getAttribLocation(prog, "position");
-    gl.enableVertexAttribArray(positionPtr); 
 
+    var positionPtr = gl.getAttribLocation(prog, "position");
+    gl.enableVertexAttribArray(positionPtr);
     gl.vertexAttribPointer(positionPtr, 3, gl.FLOAT, false, 0, 0);
 
-    obj.transform.ry = angle; 
-    obj.transform.scale = 1.0; 
-    obj.transform.y= -10.0;
-    var matS = scaleMatrix(obj.transform.scale, obj.transform.scale, obj.transform.scale);
+    obj.transform.ry = angle;
+    obj.transform.scale = 1.0;
+    obj.transform.y = -10.0;
+
+    var matS = scaleMatrix(
+      obj.transform.scale,
+      obj.transform.scale,
+      obj.transform.scale
+    );
+
     var matR_Y = rotateY(obj.transform.ry);
-    var matT = translationMatrix(obj.transform.x, obj.transform.y, obj.transform.z);
 
+    var matT = translationMatrix(
+      obj.transform.x,
+      obj.transform.y,
+      obj.transform.z
+    );
 
-    var matRS = multiply(matT, matR_Y); 
-    var finalMatrix = multiply(matRS, matS); 
+    // MODEL = T * R * S
+    var matRS = multiply(matR_Y, matS);
+    var modelMatrix = multiply(matT, matRS);
 
     var transfPtr = gl.getUniformLocation(prog, "transf");
-    gl.uniformMatrix4fv(transfPtr, false, finalMatrix);
-    
+    gl.uniformMatrix4fv(transfPtr, false, modelMatrix);
+
     gl.drawArrays(gl.TRIANGLES, 0, obj.numVertices);
   });
 
