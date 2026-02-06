@@ -1,7 +1,7 @@
 var sceneObjects = [];
-var arquivos = ["FinalBaseMesh.obj", "cube.obj"]; 
+var arquivos = ["FinalBaseMesh.obj", "cube.obj", "sun.obj"]; 
 var teximg = [];
-var texSrc = ["gato.jpg", "cachorro.png"];
+var texSrc = ["gato.jpg", "cachorro.png", "textura_sol.jpg"];
 var loadTexs = 0;
 var gl;
 var prog;
@@ -210,16 +210,27 @@ function init() {
 
     initGL();
 
+    const textureLibrary = loadedImages.map(img => createWebGLTexture(gl, img));
+
     modelParsers.forEach((dados, mIndex) => {
       dados.geometries.forEach((geom, gIndex) => {
         if (!geom.data.position) return;
 
         const obj = createRenderable(gl, geom);
+        
+        if(mIndex == 2){ // Verifica se chegou no index do sol
+          obj.isLightSource = true
+          obj.transform.scale = 0.01
+        }
+        else{
+          obj.isLightSource = false
+          
+        }
         obj.transform.x = (mIndex * 6.0) + (gIndex * 1.5);
+        obj.texture = textureLibrary[mIndex];
         sceneObjects.push(obj);
       });
     });
-    textures = loadedImages.map(img => createWebGLTexture(gl, img));
 
     draw();
   });
@@ -246,7 +257,6 @@ function createWebGLTexture(gl, image) {
   return texture;
 }
 function initGL() {
-
   var canvas = document.getElementById("glcanvas1");
 
   gl = getGL(canvas);
@@ -254,12 +264,33 @@ function initGL() {
     //Inicializa shaders
     var vtxShSrc = document.getElementById("vertex-shader").text;
     var fragShSrc = document.getElementById("frag-shader").text;
+    //Objeto luminoso que vai ficar girando
+    var lightFragSrc = ` 
+    precision mediump float;
+
+    // 1. Recebe as coordenadas que vêm do Vertex Shader
+    varying vec2 v_texCoord;
+
+    // 2. Recebe a imagem (sampler)
+    uniform sampler2D tex;
+
+    void main() {
+      // 3. Lê a cor da textura naquela coordenada
+      vec4 texColor = texture2D(tex, v_texCoord);
+
+      // DICA VISUAL: Como é um sol, você pode querer que ele ignore a luz (não tenha sombra),
+      // mas mostre a imagem. Se quiser "pintar" de amarelo por cima, multiplique.
+      // Mas geralmente, para o sol, usamos apenas a cor da textura original:
+    
+      gl_FragColor = texColor; 
+    } 
+  `;
 
     var vtxShader = createShader(gl, gl.VERTEX_SHADER, vtxShSrc);
     var fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragShSrc);
+    var lightFragShader = createShader(gl, gl.FRAGMENT_SHADER, lightFragSrc);
     prog = createProgram(gl, vtxShader, fragShader);
-
-    gl.useProgram(prog);
+    lightProg = createProgram(gl, vtxShader, lightFragShader)
 
     //Inicializa área de desenho: viewport e cor de limpeza; limpa a tela
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -267,7 +298,7 @@ function initGL() {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
+    //gl.enable(gl.CULL_FACE);
 
   }
 }
@@ -437,57 +468,92 @@ function lookat(eye,target,up){
 
 function draw() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.useProgram(prog);
 
   angle++;
+
+  //Ângulo que o sol vai gira e suas posições
+  var sun_angle = angle ** 0.3;
+  var radius = 10000;
+  var lx = Math.cos(sun_angle) * radius;
+  var ly = Math.sin(sun_angle) * radius;
+  var lz = 0.0; 
   
   var aspect = gl.canvas.width / gl.canvas.height;
   var projectionMatrix = createPerspective(
     60.0,   // fovy
     aspect,
-    1.0,    // near
-    1000.0  // far
+    0.1,    // near
+    2000.0  // far
   );
 
-  var projPtr = gl.getUniformLocation(prog, "projection");
-  gl.uniformMatrix4fv(projPtr, false, projectionMatrix);
-
-  var eye    = [0.0, 0.0, 30.0];   // posição da câmera
+  var eye    = [0.0, 0.0, 120.0];   // posição da câmera
   var target = [0.0, 0.0, 0.0];   // para onde olha
   var up     = [0.0, 1.0, 0.0];   // eixo vertical
 
   var viewMatrix = lookat(eye, target, up);
 
-  var viewPtr = gl.getUniformLocation(prog, "view");
-  gl.uniformMatrix4fv(viewPtr, false, viewMatrix);
-
-  gl.activeTexture(gl.TEXTURE0);
-  gl.uniform1i(gl.getUniformLocation(prog, "tex"), 0);
-
   sceneObjects.forEach((obj, index) => {
+    let currentProgram = obj.isLightSource ? lightProg : prog // Verifica se o objeto é um iluminador para usar o programa certo
+    gl.useProgram(currentProgram)
+
+    var projPtr = gl.getUniformLocation(currentProgram, "projection");
+    gl.uniformMatrix4fv(projPtr, false, projectionMatrix);
+
+    var viewPtr = gl.getUniformLocation(currentProgram, "view");
+    gl.uniformMatrix4fv(viewPtr, false, viewMatrix);
+
     gl.bindBuffer(gl.ARRAY_BUFFER, obj.buffer);
+    var positionPtr = gl.getAttribLocation(currentProgram, "position");
+    if(positionPtr != -1){
+      gl.enableVertexAttribArray(positionPtr);
+      gl.vertexAttribPointer(positionPtr, 3, gl.FLOAT, false, 0, 0);
+    }
 
-    var positionPtr = gl.getAttribLocation(prog, "position");
-    gl.enableVertexAttribArray(positionPtr);
-    gl.vertexAttribPointer(positionPtr, 3, gl.FLOAT, false, 0, 0);
+    if(!obj.isLightSource){ // Só utiliza sombreamento se o objeto não for iluminador
+      var normLoc = gl.getAttribLocation(currentProgram, "normal");
+      if(normLoc != -1 && obj.normalBuffer){
+        gl.bindBuffer(gl.ARRAY_BUFFER, obj.normalBuffer); //Recebe os valores das normais
+        gl.enableVertexAttribArray(normLoc);
+        gl.vertexAttribPointer(normLoc, 3, gl.FLOAT, false, 0, 0);
+      }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, obj.normalBuffer); //Recebe os valores das normais
-    var normLoc = gl.getAttribLocation(prog, "normal");
-    gl.enableVertexAttribArray(normLoc);
-    gl.vertexAttribPointer(normLoc, 3, gl.FLOAT, false, 0, 0);
+      // 1. Envia a posição da luz estática (invisível)
+      var staticLoc = gl.getUniformLocation(currentProgram, "u_lightPosStatic");
+      gl.uniform3f(staticLoc, 20.0, 50.0, 40.0); // Coordenada fixa no céu
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, obj.bufferTexCoord);
-    var texLoc = gl.getAttribLocation(prog, "texCoord");
-    gl.enableVertexAttribArray(texLoc);
-    gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
-    gl.bindTexture(gl.TEXTURE_2D, textures[index]);
+      // 2. Envia a posição da luz dinâmica (o objeto que gira)
+      var dynamicLoc = gl.getUniformLocation(currentProgram, "u_lightPosDynamic");
+      gl.uniform3f(dynamicLoc, lx, ly, lz); // Usa as variáveis da sua órbita
 
-    gl.uniform3f(gl.getUniformLocation(prog, "u_lightPosition"), 20.0, 20.0, 40.0);// Posição da Luz
-    gl.uniform3f(gl.getUniformLocation(prog, "u_viewPosition"), eye[0], eye[1], eye[2]);// Posição da view
+      gl.uniform3f(gl.getUniformLocation(currentProgram, "u_viewPosition"), eye[0], eye[1], eye[2]);// Posição da view
 
-    obj.transform.ry = angle;
-    obj.transform.scale = 1.0;
-    obj.transform.y = -10.0;
+      obj.transform.ry = angle;
+      obj.transform.scale = 1.0;
+      obj.transform.y = -10.0;
+    }
+    else{
+      obj.transform.x = lx;
+      obj.transform.y = ly;
+      obj.transform.z = lz;
+    }
+
+    // Só processa textura se o buffer e o atributo existirem
+    var texLoc = gl.getAttribLocation(currentProgram, "texCoord");
+
+    if (obj.bufferTexCoord && texLoc !== -1) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, obj.bufferTexCoord);
+      gl.enableVertexAttribArray(texLoc);
+      gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
+    
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, obj.texture);
+      gl.uniform1i(gl.getUniformLocation(currentProgram, "tex"), 0);
+    } else {
+    // Se não houver textura (como no sol), desative o atributo para segurança
+      if (texLoc !== -1) {
+        gl.disableVertexAttribArray(texLoc);
+      }
+    }
 
     var matS = scaleMatrix(
       obj.transform.scale,
@@ -495,7 +561,10 @@ function draw() {
       obj.transform.scale
     );
 
-    var matR_Y = rotateY(obj.transform.ry);
+    var matR_Y = [1,0,0,0 ,0,1,0,0 ,0,0,1,0 ,0,0,0,1] //Matriz identidade caso seja objeto iluminante
+    if(!obj.isLightSource){ //Rotaciona apenas se for um objeto comum
+      matR_Y = rotateY(obj.transform.ry);
+    }
 
     var matT = translationMatrix(
       obj.transform.x,
@@ -507,7 +576,7 @@ function draw() {
     var matRS = multiply(matR_Y, matS);
     var modelMatrix = multiply(matT, matRS);
 
-    var transfPtr = gl.getUniformLocation(prog, "transf");
+    var transfPtr = gl.getUniformLocation(currentProgram, "transf");
     gl.uniformMatrix4fv(transfPtr, false, modelMatrix);;
     gl.drawArrays(gl.TRIANGLES, 0, obj.numVertices);
   });
