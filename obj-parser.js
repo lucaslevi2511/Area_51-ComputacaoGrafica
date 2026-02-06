@@ -1,61 +1,96 @@
-// Função de parsing de arquivos .obj (Talvez seja presico acrescentar o parsing de arquivo .mtl)
 export function parseOBJ(text) {
-    const objPositions = [[0, 0, 0]];
-    const objTexcoords = [[0, 0]];
-    const objNormals = [[0, 0, 0]];
-    const objVertexData = [objPositions, objTexcoords, objNormals];
-    let webglVertexData = [[], [], []];
-    const materialLibs = [];
+    // Listas auxiliares (OBJ é 1-indexed, então começamos com dummy values ou ajustamos no índice)
+    const positions = [];
+    const texcoords = [];
+    const normals = [];
+    
+    // Resultado final
     const geometries = [];
-    let geometry, groups = ['default'], material = 'default', object = 'default';
+    const materialLibs = [];
 
-    const newGeometry = () => { if (geometry && geometry.data.position.length) geometry = undefined; };
+    // Estado atual do parser
+    let currentObject = 'default';
+    let currentGroups = ['default'];
+    let currentMaterial = 'default';
+    let currentGeometry = null;
 
-    function setGeometry() {
-        if (!geometry) {
-            const position = [], texcoord = [], normal = [];
-            webglVertexData = [position, texcoord, normal];
-            geometry = { object, groups, material, data: { position, texcoord, normal } };
-            geometries.push(geometry);
+    // Função interna para inicializar uma nova geometria apenas quando necessário
+    function initGeometry() {
+        if (!currentGeometry) {
+            currentGeometry = {
+                object: currentObject,
+                groups: currentGroups,
+                material: currentMaterial,
+                data: { position: [], texcoord: [], normal: [] }
+            };
+            geometries.push(currentGeometry);
         }
     }
 
-    function addVertex(vert) {
-        const ptn = vert.split('/');
-        ptn.forEach((objIndexStr, i) => {
-            if (!objIndexStr) return;
-            const objIndex = parseInt(objIndexStr);
-            const index = objIndex + (objIndex >= 0 ? 0 : objVertexData[i].length);
-            webglVertexData[i].push(...objVertexData[i][index]);
-        });
+    const lines = text.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || line.startsWith('#')) continue;
+
+        const parts = line.split(/\s+/);
+        const type = parts[0];
+        const args = parts.slice(1);
+
+        switch (type) {
+            case 'v': // Vértices
+                positions.push(args.map(Number));
+                break;
+            case 'vt': // Coordenadas de Textura
+                texcoords.push(args.map(Number));
+                break;
+            case 'vn': // Normais
+                normals.push(args.map(Number));
+                break;
+            case 'f': // Faces
+                initGeometry();
+                // Processa faces (suporta triângulos e polígonos maiores via fan-triangulation)
+                for (let j = 0; j < args.length - 2; j++) {
+                    const triangleVerts = [args[0], args[j + 1], args[j + 2]];
+                    
+                    triangleVerts.forEach(vertStr => {
+                        const indices = vertStr.split('/');
+                        
+                        indices.forEach((idxStr, indexType) => {
+                            if (!idxStr) return;
+                            
+                            const objIdx = parseInt(idxStr);
+                            const sourceList = [positions, texcoords, normals][indexType];
+                            
+                            // Converte índice do OBJ (1-based ou negativo) para 0-based do JS
+                            const finalIdx = objIdx >= 0 ? objIdx - 1 : sourceList.length + objIdx;
+                            
+                            const value = sourceList[finalIdx];
+                            if (value) {
+                                const targetKey = ['position', 'texcoord', 'normal'][indexType];
+                                currentGeometry.data[targetKey].push(...value);
+                            }
+                        });
+                    });
+                }
+                break;
+            case 'mtllib':
+                materialLibs.push(args.join(' '));
+                break;
+            case 'usemtl':
+                currentMaterial = args.join(' ');
+                currentGeometry = null; // Força criação de nova geometria
+                break;
+            case 'o':
+                currentObject = args.join(' ');
+                currentGeometry = null;
+                break;
+            case 'g':
+                currentGroups = args;
+                currentGeometry = null;
+                break;
+        }
     }
 
-    const keywords = {
-        v(parts) { objPositions.push(parts.map(parseFloat)); },
-        vn(parts) { objNormals.push(parts.map(parseFloat)); },
-        vt(parts) { objTexcoords.push(parts.map(parseFloat)); },
-        f(parts) {
-            setGeometry();
-            for (let tri = 0; tri < parts.length - 2; ++tri) {
-                addVertex(parts[0]); addVertex(parts[tri + 1]); addVertex(parts[tri + 2]);
-            }
-        },
-        mtllib(p, unparsed) { materialLibs.push(unparsed); },
-        usemtl(p, unparsed) { material = unparsed; newGeometry(); },
-        g(parts) { groups = parts; newGeometry(); },
-        o(p, unparsed) { object = unparsed; newGeometry(); },
-        s: () => {}
-    };
-
-    text.split('\n').forEach(line => {
-        const l = line.trim();
-        if (l === '' || l.startsWith('#')) return;
-        const m = /(\w*)(?: )*(.*)/.exec(l);
-        if (!m) return;
-        const [, keyword, unparsedArgs] = m;
-        const parts = l.split(/\s+/).slice(1);
-        if (keywords[keyword]) keywords[keyword](parts, unparsedArgs);
-    });
-
     return { geometries, materialLibs };
-} 
+}
