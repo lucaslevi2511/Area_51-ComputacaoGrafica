@@ -1,4 +1,8 @@
 var sceneObjects = [];
+var arquivos = ["FinalBaseMesh.obj", "cube.obj"]; 
+var teximg = [];
+var texSrc = ["gato.jpg", "cachorro.png"];
+var loadTexs = 0;
 var gl;
 var prog;
 var df = 2.0;
@@ -193,28 +197,53 @@ function parseOBJ(text) {
 
 
 function init() {
-  // Lista de arquivos .obj para carregar
-  const arquivos = ["FinalBaseMesh.obj", "cube.obj"]; 
 
-  const promises = arquivos.map(url => 
-    fetch(url)
-      .then(res => res.text())
-      .then(text => parseOBJ(text))
+  const modelPromises = arquivos.map(url => 
+    fetch(url).then(res => res.text()).then(text => parseOBJ(text))
   );
 
-  Promise.all(promises).then(modelosParsers => {
-    initGL(); 
-    modelosParsers.forEach((dados, index) => {
-      let objeto = createRenderable(gl, dados);
-      
-      //Coloca um objeto do lado do outro, só pparaa teste
-      objeto.transform.x = index * 6.0; 
-      
-      sceneObjects.push(objeto);
+  const texturePromises = texSrc.map(url => loadImage(url));
+
+  Promise.all([...modelPromises, ...texturePromises]).then(results => {
+    const modelParsers = results.slice(0, arquivos.length);
+    const loadedImages = results.slice(arquivos.length);
+
+    initGL();
+
+    modelParsers.forEach((dados, mIndex) => {
+      dados.geometries.forEach((geom, gIndex) => {
+        if (!geom.data.position) return;
+
+        const obj = createRenderable(gl, geom);
+        obj.transform.x = (mIndex * 6.0) + (gIndex * 1.5);
+        sceneObjects.push(obj);
+      });
     });
+    textures = loadedImages.map(img => createWebGLTexture(gl, img));
 
     draw();
   });
+}
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Falha ao carregar imagem: ${url}`));
+    img.src = url;
+  });
+}
+function createWebGLTexture(gl, image) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  
+  return texture;
 }
 function initGL() {
 
@@ -244,31 +273,29 @@ function initGL() {
 }
 var numVertices = 0;
 
-function createRenderable(gl, modelData) {
-  const positions = modelData.geometries[0].data.position;
-  const normals = modelData.geometries[0].data.normal; //Pega as normais que o parseOBJ já extraiu
-  
-  if (!positions) {
-    console.error("Dados de posição não encontrados!");
-    return null;
-  }
-  var bufPtr = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, bufPtr);
+function createRenderable(gl, geom) {
+  const positions = geom.data.position || [];
+  const normals   = geom.data.normal   || [];
+  const texcoords = geom.data.texcoord || []; // observe o nome 'texcoord'
+
+  const bufPos = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufPos);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-  var normBuffer = gl.createBuffer(); //Buffer das normais
-  gl.bindBuffer(gl.ARRAY_BUFFER, normBuffer);
+  const bufNorm = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufNorm);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
 
+  const bufTex = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufTex);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
+
   return {
-    buffer: bufPtr,
-    normalBuffer: normBuffer,
+    buffer: bufPos,
+    normalBuffer: bufNorm,
+    bufferTexCoord: bufTex,
     numVertices: positions.length / 3,
-    transform: {
-      x: 0.0, y: 0.0, z: 0.0,
-      rx: 0.0, ry: 0.0, rz: 0.0,
-      scale: 1.0
-    }
+    transform: { x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1 }
   };
 }
 
@@ -410,6 +437,7 @@ function lookat(eye,target,up){
 
 function draw() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(prog);
 
   angle++;
   
@@ -433,7 +461,10 @@ function draw() {
   var viewPtr = gl.getUniformLocation(prog, "view");
   gl.uniformMatrix4fv(viewPtr, false, viewMatrix);
 
-  sceneObjects.forEach(obj => {
+  gl.activeTexture(gl.TEXTURE0);
+  gl.uniform1i(gl.getUniformLocation(prog, "tex"), 0);
+
+  sceneObjects.forEach((obj, index) => {
     gl.bindBuffer(gl.ARRAY_BUFFER, obj.buffer);
 
     var positionPtr = gl.getAttribLocation(prog, "position");
@@ -444,6 +475,12 @@ function draw() {
     var normLoc = gl.getAttribLocation(prog, "normal");
     gl.enableVertexAttribArray(normLoc);
     gl.vertexAttribPointer(normLoc, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, obj.bufferTexCoord);
+    var texLoc = gl.getAttribLocation(prog, "texCoord");
+    gl.enableVertexAttribArray(texLoc);
+    gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.bindTexture(gl.TEXTURE_2D, textures[index]);
 
     gl.uniform3f(gl.getUniformLocation(prog, "u_lightPosition"), 20.0, 20.0, 40.0);// Posição da Luz
     gl.uniform3f(gl.getUniformLocation(prog, "u_viewPosition"), eye[0], eye[1], eye[2]);// Posição da view
@@ -471,8 +508,7 @@ function draw() {
     var modelMatrix = multiply(matT, matRS);
 
     var transfPtr = gl.getUniformLocation(prog, "transf");
-    gl.uniformMatrix4fv(transfPtr, false, modelMatrix);
-
+    gl.uniformMatrix4fv(transfPtr, false, modelMatrix);;
     gl.drawArrays(gl.TRIANGLES, 0, obj.numVertices);
   });
 
