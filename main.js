@@ -3,13 +3,14 @@ import * as Utils from './webgl-utils.js';
 import { parseOBJ } from './obj-parser.js';
 import { createRenderable } from './renderer.js';
 import * as Math3D from './math.js';
+import { createExhibitCorridor } from './geometry-generator.js';
 
 // Estado Global
 let gl, prog, lightProg;
 let sceneObjects = [];
 let angle = 0;
 const arquivos = ["FinalBaseMesh.obj", "cube.obj", "sun.obj"];
-const texSrc = ["gato.jpg", "cachorro.png", "textura_sol.jpg"];
+const texSrc = ["gato.jpg", "cachorro.png", "textura_sol.jpg","metal.jpg"];
 
 async function init() {
     const modelTexts = await Promise.all(arquivos.map(url => fetch(url).then(r => r.text())));
@@ -19,6 +20,12 @@ async function init() {
     initGL();
 
     const textureLibrary = loadedImages.map(img => Utils.createWebGLTexture(gl, img));
+
+    const corridor = createExhibitCorridor(gl);
+    corridor.isLightSource = false;
+    corridor.transform.y = -15.0; // Ajuste para ficar abaixo dos objetos
+    corridor.texture = textureLibrary[3];// metal.jpg
+    sceneObjects.push(corridor);
 
     modelParsers.forEach((dados, mIndex) => {
         dados.geometries.forEach((geom, gIndex) => {
