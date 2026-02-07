@@ -14,9 +14,9 @@ export function createExhibitCorridor(gl) {
     const length = 100.0; 
     const width = 20.0;  
     const height = 30.0; 
-    const holeSize = 15.0; 
-    const holeDepth = 8.0; 
-    const hBottom = 10.0; 
+    const holeSize = 20.0; 
+    const holeDepth = 20.0; 
+    const hBottom = 5.0; 
     const hTop = hBottom + holeSize;
 
     // Chão
