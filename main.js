@@ -52,9 +52,9 @@ async function init() {
                 case 1:
                     obj.isLightSource = false;
                     obj.transform.scale = 5;
-                    obj.transform.x = 15;
+                    obj.transform.x = 23;
                     obj.transform.z = 0;
-                    obj.transform.ry = -90;
+                    obj.transform.ry = -100;
                     break
             }
             obj.texture = textureLibrary[mIndex];

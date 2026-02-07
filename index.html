@@ -22,6 +22,7 @@
             vec4 worldPos = transf * position;
             v_worldPosition = worldPos.xyz;
             v_normal = mat3(transf) * normal;
+            
             gl_Position = projection * view * worldPos;
         }
     </script>
@@ -38,6 +39,7 @@
         uniform vec3 u_viewPosition;
 
         void main() {
+            // Normalização dos vetores
             float squares_vector_sum = sqrt(v_normal.x * v_normal.x + v_normal.y * v_normal.y + v_normal.z * v_normal.z);
             vec3 N = v_normal / squares_vector_sum;
 
@@ -45,36 +47,78 @@
             squares_vector_sum = sqrt(viewDir.x * viewDir.x + viewDir.y * viewDir.y + viewDir.z * viewDir.z);
             vec3 V = viewDir / squares_vector_sum;
 
+            // Luz estática
             vec3 lightDir = u_lightPosStatic - v_worldPosition;
             squares_vector_sum = sqrt(lightDir.x * lightDir.x + lightDir.y * lightDir.y + lightDir.z * lightDir.z);
             vec3 Lstatic = lightDir / squares_vector_sum;
 
+            // Luz dinâmica
             lightDir = u_lightPosDynamic - v_worldPosition;
             squares_vector_sum = sqrt(lightDir.x * lightDir.x + lightDir.y * lightDir.y + lightDir.z * lightDir.z);
             vec3 Ldynamic = lightDir / squares_vector_sum;
 
+            // Cálculo de difusa (Lambert)
             float dotNL = (N.x * Lstatic.x) + (N.y * Lstatic.y) + (N.z * Lstatic.z);
             float diffstatic = max(dotNL, 0.0);
 
             dotNL = (N.x * Ldynamic.x) + (N.y * Ldynamic.y) + (N.z * Ldynamic.z);
             float diffdynamic = max(dotNL, 0.0);
 
-            vec3 I = -Lstatic;
+            // Phong Reflection Model manual
+            // Luz Estática
+            vec3 I = -Lstatic; 
             float dotNI = (N.x * I.x) + (N.y * I.y) + (N.z * I.z);
+            // Reflect: I - 2.0 * dot(N, I) * N
             vec3 Rstatic = I - 2.0 * dotNI * N;
-
-            I = -Ldynamic;
-            dotNI = (N.x * I.x) + (N.y * I.y) + (N.z * I.z);
-            vec3 Rdynamic = I - 2.0 * dotNI * N;
 
             float dotRV = (Rstatic.x * V.x) + (Rstatic.y * V.y) + (Rstatic.z * V.z);
             float specstatic = pow(max(dotRV, 0.0), 50.0);
 
+            // Luz Dinâmica
+            I = -Ldynamic;
+            dotNI = (N.x * I.x) + (N.y * I.y) + (N.z * I.z);
+            vec3 Rdynamic = I - 2.0 * dotNI * N;
+
             dotRV = (Rdynamic.x * V.x) + (Rdynamic.y * V.y) + (Rdynamic.z * V.z);
             float specdynamic = pow(max(dotRV, 0.0), 50.0);
 
+            // -Início do bloqueio de luz(gating)
+            
+            float sunMask = 1.0; 
+
+            // Definições do seu cenário (hardcoded conforme seu JS)
+            float wallWidth = 20.0;     // Onde começa a parede principal
+            float wallHeight = 30.0;    // Altura máxima da parede
+            float nicheDepth = 8.0;     // Profundidade do cubo do nicho
+            float maxExtent = wallWidth + nicheDepth; // 28.0
+
+
+            bool sunIsOutside = abs(u_lightPosDynamic.x) > wallWidth;
+
+            // (Se estiver muito alto, > 30, ele ilumina o chão por cima)
+            bool sunIsLow = u_lightPosDynamic.y < wallHeight;
+
+            // Consideramos interno qualquer coisa dentro da extensão total da geometria (X < 28)
+            // e abaixo da altura da parede.
+            bool pixelIsInterior = abs(v_worldPosition.x) < (maxExtent + 0.5) && v_worldPosition.y < wallHeight;
+
+
+            // Se o sol está fora e baixo, e o pixel é interno, temos uma parede entre eles.
+            // O "cubo" do nicho é sólido, então ele também bloqueia a luz vinda de trás dele.
+            if (sunIsOutside && sunIsLow && pixelIsInterior) {
+                sunMask = 0.0;
+            }
+
+            // Aplica a máscara
+            diffdynamic *= sunMask;
+            specdynamic *= sunMask;
+
+            // Fim do bloqueio de luz
+
             vec3 texColor = texture2D(tex, v_texCoord).rgb;
             float ambient = 0.2;
+            
+            // Combinação final
             float lightFactor = (ambient + (diffstatic + diffdynamic) + (specstatic + specdynamic) * 0.5);
 
             gl_FragColor = vec4(lightFactor * texColor, 1.0);
