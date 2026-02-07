@@ -4,7 +4,7 @@ export function createExhibitCorridor(gl) {
     const positions = [];
     const normals = [];
     const texcoords = [];
-
+    // a variável 'n' é o vetor normmal das paredes, decidi deixar n porque 'normal' fica difícil de separar de 'normals'
     function addQuad(p1, p2, p3, p4, n) {
         positions.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
         for(let i=0; i<6; i++) normals.push(...n);
@@ -50,6 +50,7 @@ export function createExhibitCorridor(gl) {
         addQuad([x, hTop, -length], [x, hTop, length], [x, height, length], [x, height, -length], nWall);
 
         // Segmentos verticais entre/antes/depois dos buracos
+        // 'hz' é o cenntro  de um dos buracos, assim como na variávell 'n' deixei assim porque achei menos confuso
         let lastZ = -length;
         holeZs.forEach(hz => {
             // Parede entre o último Z e o início do buraco atual
