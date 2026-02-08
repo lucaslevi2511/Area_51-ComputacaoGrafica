@@ -22,8 +22,8 @@ const input = {
   right: false
 };
 
-const arquivos = ["obj/sun.obj", "obj/pucci.obj", "obj/cat.obj", "obj/Alien.obj"];
-const texSrc = ["img/textura_sol.jpg", "img/pucci.png", "img/cat.png"];
+const arquivos = ["obj/sun.obj", "obj/pucci.obj", "obj/cat.obj", "obj/Alien.obj", "obj/et_bilu.obj", "obj/corotinho.obj", "obj/megacavaleiro.obj"];
+const texSrc = ["img/textura_sol.jpg", "img/pucci.png", "img/cat.png", "img/et_bilu.jpeg", "img/corotinho.png", "img/megacavaleiro.png"];
 
 async function init() {
   const modelTexts = await Promise.all(
@@ -101,6 +101,34 @@ async function init() {
             obj.transform.ry = -90;
             obj.transform.y = -7;
             break;
+        case 4:
+            obj.useTexture = true;
+            obj.transform.scale = 8;
+            obj.transform.x = -25;
+            obj.transform.z = 50;
+            obj.transform.ry = 90;
+            obj.transform.y = -3;
+            obj.texture = textureLibrary[3];
+            break;
+        case 5:
+            obj.useTexture = true;
+            obj.transform.scale = 1;
+            obj.transform.x = -25;
+            obj.transform.z = 0;
+            obj.transform.ry = 90;
+            obj.transform.y = -4;
+            obj.texture = textureLibrary[4];
+            break;
+        case 6:
+            obj.useTexture = true;
+            obj.transform.scale = 10;
+            obj.transform.x = -26;
+            obj.transform.z = -50;
+            obj.transform.ry = 90;
+            obj.transform.y = -4;
+            obj.texture = textureLibrary[5];
+            break;
+
       }
       sceneObjects.push(obj);
     });
