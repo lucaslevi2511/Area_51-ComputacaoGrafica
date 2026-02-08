@@ -22,8 +22,8 @@ const input = {
   right: false
 };
 
-const arquivos = ["obj/sun.obj", "obj/pucci.obj"];
-const texSrc = ["img/textura_sol.jpg", "img/pucci.png"];
+const arquivos = ["obj/sun.obj", "obj/pucci.obj", "obj/cat.obj", "obj/Alien.obj"];
+const texSrc = ["img/textura_sol.jpg", "img/pucci.png", "img/cat.png"];
 
 async function init() {
   const modelTexts = await Promise.all(
@@ -67,17 +67,41 @@ async function init() {
         z: -center.z
       };
 
-      if (mIndex === 0) {
-        obj.isLightSource = true;
-        obj.transform.scale = 0.01;
-      } else {
-        obj.transform.scale = 5;
-        obj.transform.x = 23;
-        obj.transform.z = 0;
-        obj.transform.ry = -100;
+      switch(mIndex) {
+        case 0:
+            obj.useTexture = true;
+            obj.isLightSource = true;
+            obj.transform.scale = 0.01;
+            obj.texture = textureLibrary[0];
+            break;
+        case 1:
+            obj.useTexture = true;
+            obj.transform.scale = 7;
+            obj.transform.x = 23;
+            obj.transform.z = 0;
+            obj.transform.ry = -90;
+            obj.transform.y = -7;
+            obj.texture = textureLibrary[1];
+            break;
+        case 2:
+            obj.useTexture = true;
+            obj.transform.scale = 14;
+            obj.transform.x = 25;
+            obj.transform.z = 50;
+            obj.transform.ry = -90;
+            obj.transform.y = -7;
+            obj.texture = textureLibrary[2];
+            break;
+        case 3:
+            obj.useTexture = false;
+            obj.color = [0, 1, 0, 1];
+            obj.transform.scale = 0.7;
+            obj.transform.x = 23;
+            obj.transform.z = -50;
+            obj.transform.ry = -90;
+            obj.transform.y = -7;
+            break;
       }
-
-      obj.texture = textureLibrary[mIndex];
       sceneObjects.push(obj);
     });
   });
@@ -109,7 +133,7 @@ function initGL() {
   lightProg = Utils.createProgram(gl, vShader, lfShader);
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.clearColor(0, 0, 0, 1);
+  gl.clearColor(0.53, 0.81, 0.92, 1.0);
   gl.enable(gl.DEPTH_TEST);
 }
 
@@ -154,7 +178,7 @@ function draw(time = 0) {
   const projection = Math3D.createPerspective(60, aspect, 0.5, 2000);
   const view = getViewMatrix(camera);
 
-  const radius = 10000;
+  const radius = 100;
   const sunAngle = Math.sqrt(angle);
   const lx = Math.cos(sunAngle) * radius;
   const ly = Math.sin(sunAngle) * radius;
@@ -212,16 +236,40 @@ function draw(time = 0) {
       obj.transform.z = lz;
     }
 
-    if (obj.bufferTexCoord) {
-      const texLoc = gl.getAttribLocation(program, "texCoord");
-      if (texLoc !== -1) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, obj.bufferTexCoord);
-        gl.enableVertexAttribArray(texLoc);
-        gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
+    const uUseTexLoc = gl.getUniformLocation(program, "u_useTexture");
+    const uColorLoc = gl.getUniformLocation(program, "u_color");
+    const texAttribLoc = gl.getAttribLocation(program, "texCoord");
+
+    if (obj.bufferTexCoord && obj.texture) {
+
+        // Avisa o shader: "Verdadeiro, use textura"
+        gl.uniform1i(uUseTexLoc, 1);
+
+        const texLoc = gl.getAttribLocation(program, "texCoord");
+        if (obj.bufferTexCoord && texLoc !== -1) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, obj.bufferTexCoord);
+            gl.enableVertexAttribArray(texLoc);
+            gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
+        }
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, obj.texture);
         gl.uniform1i(gl.getUniformLocation(program, "tex"), 0);
-      }
+
+    }else{
+        // Avisa o shader: "Falso, use a cor u_color"
+        gl.uniform1i(uUseTexLoc, 0);
+
+        // Define a cor (Usa branco se obj.color não estiver definido)
+        const colorToSend = obj.color ? obj.color : [1.0, 1.0, 1.0, 1.0];
+        gl.uniform4fv(uColorLoc, colorToSend);
+
+        // Boas práticas: Desvincular textura e desativar atributo para não dar erro
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        if (texAttribLoc !== -1) {
+            gl.disableVertexAttribArray(texAttribLoc);
+        }
+
     }
 
     const matS = Math3D.scaleMatrix(

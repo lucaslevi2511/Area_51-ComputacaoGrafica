@@ -38,6 +38,9 @@
         uniform vec3 u_lightPosDynamic;
         uniform vec3 u_viewPosition;
 
+        uniform bool u_useTexture;  // Vem do JS (true/false)
+        uniform vec4 u_color;       // Vem do JS (R, G, B, A)
+
         void main() {
             // Normalização dos vetores
             float squares_vector_sum = sqrt(v_normal.x * v_normal.x + v_normal.y * v_normal.y + v_normal.z * v_normal.z);
@@ -115,13 +118,22 @@
 
             // Fim do bloqueio de luz
 
-            vec3 texColor = texture2D(tex, v_texCoord).rgb;
+            vec4 baseColor;
+
+            if (u_useTexture) {
+                // Se o JS disse que tem textura, lê a imagem
+                baseColor = texture2D(tex, v_texCoord);
+            } else {
+                // Se não, usa a cor sólida (verde, vermelho, etc)
+                baseColor = u_color;
+            }
+
             float ambient = 0.2;
             
             // Combinação final
             float lightFactor = (ambient + (diffstatic + diffdynamic) + (specstatic + specdynamic) * 0.5);
 
-            gl_FragColor = vec4(lightFactor * texColor, 1.0);
+            gl_FragColor = vec4(lightFactor * baseColor.rgb, baseColor.a);
         }
     </script>
 
@@ -129,8 +141,8 @@
 </head>
 
 <body>
-    <div style="text-align: center;">
-        <canvas id="glcanvas1" width="600" height="420"></canvas>
+    <div style="text-align: center; margin: 25px 0 auto 0;">
+        <canvas id="glcanvas1" width="1000" height="600"></canvas>
     </div>
 </body>
 </html>
