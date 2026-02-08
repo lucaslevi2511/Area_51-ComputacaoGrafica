@@ -9,6 +9,8 @@ import {createCamera,updateCameraMovement,updateCameraLook,getViewMatrix} from "
 let gl, prog, lightProg;
 let sceneObjects = [];
 let angle = 0;
+let sunSpeed = 0;
+let cont = 0;
 
 // Câmera
 let camera;
@@ -199,6 +201,15 @@ function draw(time = 0) {
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   angle++;
+  cont++;
+  if(sunSpeed < 15 && cont == 200){
+    sunSpeed++;
+    cont = 0;
+  }else{
+    if(sunSpeed == 15){
+      cont = 0;
+    }
+  }
 
   updateCameraMovement(camera, input, deltaTime);
 
@@ -207,12 +218,12 @@ function draw(time = 0) {
   const view = getViewMatrix(camera);
 
   const radius = 100;
-  const sunAngle = Math.sqrt(angle);
+  const sunAngle = Math.sqrt(angle * sunSpeed);
   const lx = Math.cos(sunAngle) * radius;
   const ly = Math.sin(sunAngle) * radius;
   const lz = 0;
 
-  sceneObjects.forEach(obj => {
+  sceneObjects.forEach((obj, index) => {
     const program = obj.isLightSource ? lightProg : prog;
     gl.useProgram(program);
 
@@ -258,6 +269,9 @@ function draw(time = 0) {
         camera.position[1],
         camera.position[2]
       );
+      if(index == 5){
+        obj.transform.ry = angle * 4
+      }
     } else {
       obj.transform.x = lx;
       obj.transform.y = ly;
