@@ -15,7 +15,6 @@ export function createRenderable(gl, geom) {
     const bufTex = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, bufTex);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
-
     return {
         buffer: bufPos,
         normalBuffer: bufNorm,
