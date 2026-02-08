@@ -2,7 +2,170 @@
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
     <title>Area 51</title>
+
+    <style>
+        /* --- RESET BÁSICO --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            height: 100vh;
+            overflow: hidden; /* Evita barras de rolagem indesejadas */
+            color: #fff;
+            
+            /* BACKGROUND: Substitua a URL abaixo pela sua imagem gerada */
+            background: linear-gradient(rgba(0, 20, 0, 0.7), rgba(0, 0, 20, 0.8)), 
+                        url('https://images.unsplash.com/photo-1518066000714-58c45f1a2c0a?q=80&w=2070&auto=format&fit=crop'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* --- LAYOUT PRINCIPAL --- */
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 20px;
+        }
+
+        /* --- CABEÇALHO --- */
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00; /* Brilho Neon Verde */
+            animation: glitch 3s infinite alternate;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem;
+            color: #ccff00; /* Verde-Amarelo Brasil Neon */
+            letter-spacing: 5px;
+            text-transform: uppercase;
+        }
+
+        /* --- ÁREA DO CONTEÚDO (Canvas + Sidebar) --- */
+        .content-wrapper {
+            display: flex;
+            flex: 1; /* Ocupa o resto da altura */
+            gap: 30px;
+            align-items: center; /* Centraliza verticalmente */
+            justify-content: center; /* Centraliza horizontalmente */
+            position: relative;
+        }
+
+        /* --- CANVAS WRAPPER --- */
+        .canvas-container {
+            position: relative;
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.8);
+            
+            /* Garante que o canvas não estoure a tela */
+            max-width: 80vw;
+            max-height: 70vh;
+            display: flex;
+        }
+
+        canvas {
+            display: block; /* Remove espaço extra embaixo do canvas */
+        }
+
+        /* --- SIDEBAR (INTEGRANTES) --- */
+        .sidebar {
+            width: 300px;
+            background: rgba(0, 20, 0, 0.6); /* Fundo semi-transparente */
+            backdrop-filter: blur(10px); /* Efeito de vidro fosco */
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            height: fit-content;
+            align-self: flex-start; /* Alinha no topo ou center conforme preferir */
+            margin-top: 20px;
+            
+            /* Animação de entrada */
+            transform: translateX(20px);
+            opacity: 0.9;
+            transition: 0.3s;
+        }
+
+        .sidebar:hover {
+            border-color: #ffff00; /* Borda amarela ao passar o mouse */
+            box-shadow: 0 0 15px rgba(255, 255, 0, 0.2);
+        }
+
+        .sidebar h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: #00ff00;
+            font-size: 1.2rem;
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar li {
+            margin-bottom: 12px;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Ícone alienígena antes do nome */
+        .sidebar li::before {
+            content: '👽'; 
+            margin-right: 10px;
+            filter: hue-rotate(90deg); /* Deixa o alien mais esverdeado */
+        }
+
+        /* --- ANIMAÇÃO GLITCH NO TÍTULO --- */
+        @keyframes glitch {
+            0% { text-shadow: 2px 2px 0px #ff00de, -2px -2px 0px #00ff00; }
+            25% { text-shadow: -2px 2px 0px #ff00de, 2px -2px 0px #00ff00; }
+            50% { text-shadow: 2px -2px 0px #ff00de, -2px 2px 0px #00ff00; }
+            75% { text-shadow: -2px -2px 0px #ff00de, 2px 2px 0px #00ff00; }
+            100% { text-shadow: 2px 2px 0px #ff00de, -2px -2px 0px #00ff00; }
+        }
+
+        /* --- RESPONSIVIDADE --- */
+        @media (max-width: 900px) {
+            .content-wrapper {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                max-width: 600px;
+                display: flex;
+                flex-direction: row;
+                gap: 20px;
+                justify-content: center;
+                align-items: center;
+            }
+            .sidebar h2 {
+                border-bottom: none;
+                border-right: 2px solid #00ff00;
+                padding-right: 10px;
+                margin-bottom: 0;
+            }
+        }
+    </style>
 
     <script id="vertex-shader" type="notjs">
         attribute vec4 position;
@@ -141,8 +304,25 @@
 </head>
 
 <body>
-    <div style="text-align: center; margin: 25px 0 auto 0;">
-        <canvas id="glcanvas1" width="1000" height="600"></canvas>
+    <div class="container">
+        <header>
+            <h1>Area 51 Brasil</h1>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="canvas-container">
+                <canvas id="glcanvas1" width="1000" height="600"></canvas>
+            </div>
+
+            <aside class="sidebar">
+                <h2>Desenvolvedores:</h2>
+                <ul>
+                    <li>Pedro Henrique Luna Lessa</li>
+                    <li>Antônio Ícaro Morais Pinto</li>
+                    <li>Lucas Levi Santos de Medeiros</li>
+                </ul>
+            </aside>
+        </div>
     </div>
 </body>
 </html>
