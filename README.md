@@ -27,6 +27,10 @@ Detecção de Colisão : Impedir que o usuário atravesse paredes ou objetos da 
 
 Como Executar:
 Instalação e Execução
+Instale a extensão do vscode:
+-Live Server
+-Clique no botão inferior direito "Go Live" para rodar
+
 Clone o repositório:
 
 git clone https://github.com/lucaslevi2511/Area_51-ComputacaoGrafica.git
