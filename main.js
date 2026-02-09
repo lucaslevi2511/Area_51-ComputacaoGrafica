@@ -11,7 +11,7 @@ let sceneObjects = [];
 let angle = 0;
 let sunSpeed = 0;
 let cont = 0;
-
+let bgMusic;
 // Câmera
 let camera;
 let lastTime = 0;
@@ -36,6 +36,10 @@ async function init() {
   );
 
   const metalImg = await Utils.loadImage("img/metal.jpg");
+
+  bgMusic = new Audio("arquivoX.mp3"); 
+  bgMusic.loop = true;   
+  bgMusic.volume = 0.1;  
 
   initGL();
   setupInput();
@@ -172,7 +176,13 @@ function setupInput() {
 
   canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
 
-  canvas.onclick = () => canvas.requestPointerLock();
+  canvas.onclick = () => {
+    canvas.requestPointerLock();
+
+    if (bgMusic && bgMusic.paused) {
+      bgMusic.play().catch(e => console.error("Erro ao reproduzir áudio:", e));
+    }
+  };
 
   document.addEventListener("mousemove", e => {
     if (document.pointerLockElement === canvas) {
@@ -244,10 +254,9 @@ function draw(time = 0) {
       gl.enableVertexAttribArray(posLoc);
       gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
     }
-    // No main.js, dentro do loop sceneObjects.forEach
+
     const normLoc = gl.getAttribLocation(program, "normal");
 
-    // Mude de obj.bufferNormal para obj.normalBuffer
     if (normLoc !== -1 && obj.normalBuffer) { 
         gl.bindBuffer(gl.ARRAY_BUFFER, obj.normalBuffer);
         gl.enableVertexAttribArray(normLoc);

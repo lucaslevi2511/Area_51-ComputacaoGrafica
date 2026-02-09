@@ -3,10 +3,10 @@ import { lookat } from "./math.js";
 
 export function createCamera() {
   return {
-    position: [0, 5, 0], // altura dos olhos
-    yaw: 0,               // esquerda / direita
-    pitch: 0,             // cima / baixo
-    speed: 15.0,
+    position: [0, 5, 100], 
+    yaw: 0,               
+    pitch: 0,             
+    speed: 20.0,
     sensitivity: 0.003
   };
 }
@@ -50,24 +50,16 @@ export function updateCameraMovement(camera, input, deltaTime) {
     nextPos[0] += moveRight[0] * velocity;
     nextPos[2] += moveRight[2] * velocity;
   }
-
-  // 2. Definimos as margens (Box de colisão)
-  // Deixamos uma pequena margem (ex: 1.0) para o jogador não "colar" na parede
   const margin = 1.5;
   const wallLimitX = 20.0 - margin;
   const wallLimitZ = 100.0 - margin;
 
-  // 3. Verificação de Colisão (Restrição de movimento)
-  
-  // Colisão com as paredes laterais (Eixo X)
   if (nextPos[0] > wallLimitX) nextPos[0] = wallLimitX;
   if (nextPos[0] < -wallLimitX) nextPos[0] = -wallLimitX;
 
-  // Colisão com o fundo e a frente (Eixo Z)
   if (nextPos[2] > wallLimitZ) nextPos[2] = wallLimitZ;
   if (nextPos[2] < -wallLimitZ) nextPos[2] = -wallLimitZ;
 
-  // 4. Aplica a posição final (já validada)
   camera.position[0] = nextPos[0];
   camera.position[2] = nextPos[2];
 }
